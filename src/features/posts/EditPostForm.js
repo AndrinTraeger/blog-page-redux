@@ -1,81 +1,89 @@
-import { useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { selectPostById, updatePost, deletePost } from "./postsSlice";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useGetPostsQuery } from './postsSlice';
+import { useUpdatePostMutation, useDeletePostMutation } from "./postsSlice";
+import { useGetUsersQuery } from '../users/usersSlice';
 
-import { selectAllUsers } from "../users/usersSlice";
+const EditPostForm = () => {
+    const { postId } = useParams()
+    const navigate = useNavigate()
 
-const EditPostForm = () =>{
-    const {postId} = useParams();
-    const navigate = useNavigate();
+    const [updatePost, { isLoading }] = useUpdatePostMutation()
+    const [deletePost] = useDeletePostMutation()
 
-    const post = useSelector((state) => selectPostById(state, Number(postId)))
-    const users = useSelector(selectAllUsers)
+    const { post, isLoading: isLoadingPosts, isSuccess } = useGetPostsQuery('getPosts', {
+        selectFromResult: ({ data, isLoading, isSuccess }) => ({
+            post: data?.entities[postId],
+            isLoading,
+            isSuccess
+        }),
+    })
 
-    const [title, setTitle] = useState(post?.title)
-    const[content, setContent] = useState(post?.body)
-    const [userId, setUserId] = useState(post?.userId)
-    const [requestStatus, setRequestStatus] = useState('idle')
+    const { data: users, isSuccess: isSuccessUsers } = useGetUsersQuery('getUsers')
 
-    const dispatch = useDispatch()
+    const [title, setTitle] = useState('')
+    const [content, setContent] = useState('')
+    const [userId, setUserId] = useState('')
 
-    if(!post){
-        return(
+    useEffect(() => {
+        if (isSuccess) {
+            setTitle(post.title)
+            setContent(post.body)
+            setUserId(post.userId)
+        }
+    }, [isSuccess, post?.title, post?.body, post?.userId])
+
+    if (isLoadingPosts) return <p>Loading...</p>
+
+    if (!post) {
+        return (
             <section>
-                <h2>No post found!</h2>
+                <h2>Post not found!</h2>
             </section>
         )
     }
 
     const onTitleChanged = e => setTitle(e.target.value)
     const onContentChanged = e => setContent(e.target.value)
-    const onAuthorChanged = e => setUserId(e.target.value)
+    const onAuthorChanged = e => setUserId(Number(e.target.value))
 
-    const canSave = [title, content, userId].every(Boolean) && requestStatus === 'idle'
+    const canSave = [title, content, userId].every(Boolean) && !isLoading;
 
-    const onSavePostClicked = () => {
-        if (canSave){
-            try{
-                setRequestStatus('pending')
-                dispatch(updatePost({ id: post.id, title, body: content, userId, reactions: post.reactions})).unwrap()
+    const onSavePostClicked = async () => {
+        if (canSave) {
+            try {
+                await updatePost({ id: post?.id, title, body: content, userId }).unwrap()
 
                 setTitle('')
                 setContent('')
                 setUserId('')
                 navigate(`/post/${postId}`)
-            }catch(err){
-                console.log("Failed to save changes!", err)
-            }finally{
-                setRequestStatus('idle')
+            } catch (err) {
+                console.error('Failed to save the post', err)
             }
         }
     }
 
-    const userOptions = users.map(user =>(
-        <option
-            key={user.id}
-            value={user.id}>
-            {user.name}
-            </option>
-    ))
+    let usersOptions
+    if (isSuccessUsers) {
+        usersOptions = users.ids.map(id => (
+            <option
+                key={id}
+                value={id}
+            >{users.entities[id].name}</option>
+        ))
+    }
 
-    const onDeletePostClicked = () => {
-        try{
-            const check = window.confirm("Are you sure you want to delete this Post?")
-
-            if(check === true){
-            setRequestStatus('pending')
-            dispatch(deletePost({ id: post.id})).unwrap()
+    const onDeletePostClicked = async () => {
+        try {
+            await deletePost({ id: post?.id }).unwrap()
 
             setTitle('')
             setContent('')
             setUserId('')
-            navigate("/")
-            }
-        } catch(err){
-            console.log(`Failed to delete Post: ${post.title}`, err)
-        } finally {
-            setRequestStatus('idle')
+            navigate('/')
+        } catch (err) {
+            console.error('Failed to delete the post', err)
         }
     }
 
@@ -89,10 +97,10 @@ const EditPostForm = () =>{
         return
     }
 
-    return(
-        <section className="editForms">
-            <h2>Edit Post 
-                <button
+    return (
+        <section>
+            <h2>Edit Post
+            <button
                 type="button"
                 className="cancelBtn"
                 onClick={onCancelEditClicked}
@@ -101,40 +109,43 @@ const EditPostForm = () =>{
                 </button>
             </h2>
             <form>
-                <label htmlFor="postAuthor">Author:</label>
-                <select id="postAuthor" defaultValue={userId} onChange={onAuthorChanged}>
-                    <option value=""></option>
-                    {userOptions}
-                </select>
                 <label htmlFor="postTitle">Post Title:</label>
                 <input
                     type="text"
                     id="postTitle"
-                    name="ostTitle"
+                    name="postTitle"
                     value={title}
-                    onChange={onTitleChanged}/>
+                    onChange={onTitleChanged}
+                />
+                <label htmlFor="postAuthor">Author:</label>
+                <select id="postAuthor" value={userId} onChange={onAuthorChanged}>
+                    <option value=""></option>
+                    {usersOptions}
+                </select>
                 <label htmlFor="postContent">Content:</label>
                 <textarea
                     id="postContent"
                     name="postContent"
                     value={content}
-                    onChange={onContentChanged}/>
+                    onChange={onContentChanged}
+                />
                 <button
                     type="button"
                     className="saveBtn"
                     onClick={onSavePostClicked}
-                    disabled={!canSave}>
-                        Save Changes
+                    disabled={!canSave}
+                >
+                    Save Post
                 </button>
-                <button
+                <button className="deleteBtn"
                     type="button"
-                    className="deleteBtn"
-                    onClick={onDeletePostClicked}>
-                        Delete        
-                </button>   
+                    onClick={onDeletePostClicked}
+                >
+                    Delete Post
+                </button>
             </form>
         </section>
     )
 }
 
-export default EditPostForm;
+export default EditPostForm
