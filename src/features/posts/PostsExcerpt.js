@@ -3,6 +3,7 @@ import TimeAgo from "./TimeAgo";
 import ReactionButtons from "./ReactionButtons";
 import { Link } from 'react-router-dom';
 import { useGetPostsQuery } from './postsSlice';
+import ServerStatus from "../../components/ServerStatus";
 
 const PostsExcerpt = ({ postId }) => {
 

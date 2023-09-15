@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom"
+import ServerStatus from "./ServerStatus";
 import { useParams } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
@@ -47,7 +47,10 @@ const onEditTryToNavigateToNewPost = () =>{
     return (
         <header className="Header">
         <img src="https://0.gravatar.com/avatar/927bec9e743dd1839159813a9420baa3286a6c2691f133d8357aebb985e7aa3e?s=120&d=identicon&r=G" alt="Twittergram"></img>
-        <h1>Twittergram</h1>
+        <section style={{maxWidth: "800px"}}>
+        <h1>Twittergram </h1>
+        <ServerStatus/>
+        </section>
         <nav>
             <ul>
                 <button className="homeBtn" onClick={onEditTryToNavigateToHome}>Home</button><br/>
